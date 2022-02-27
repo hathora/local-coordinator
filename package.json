@@ -1,0 +1,19 @@
+{
+  "name": "local-coordinator",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Local coordinator for Hathora",
+  "author": "Harsh Pandey",
+  "license": "MIT",
+  "dependencies": {
+    "bin-serde": "^1.1.1",
+    "unique-names-generator": "^4.7.1",
+    "ws": "^8.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.21",
+    "@types/ws": "^8.5.1",
+    "ts-node": "^10.5.0",
+    "typescript": "^4.5.5"
+  }
+}
