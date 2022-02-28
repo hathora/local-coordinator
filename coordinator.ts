@@ -70,7 +70,7 @@ server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffe
 server.listen(443, () => console.log("Listening on port 443 for http connections"));
 
 function handleConnection(stateId: StateId, userId: UserId, socket: WebSocket) {
-  socket.on("close", () => {
+  socket.onclose = () => {
     if (!connections.has(stateId)) {
       return;
     }
@@ -82,6 +82,6 @@ function handleConnection(stateId: StateId, userId: UserId, socket: WebSocket) {
     if (connections.get(stateId)!.size === 0) {
       connections.delete(stateId);
     }
-  });
-  socket.on("message", (data) => storeClient!.handleUpdate(stateId, userId, data as Buffer));
+  };
+  socket.onmessage = ({ data }) => storeClient!.handleUpdate(stateId, userId, data as Buffer);
 }
