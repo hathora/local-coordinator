@@ -11,12 +11,13 @@ type StateId = bigint;
 type UserId = string;
 const connections: Map<StateId, Map<UserId, Set<WebSocket>>> = new Map();
 
-let storeClient: StoreClient | undefined;
-const coordinatorServer = net.createServer((socket) => {
-  console.log("Got store connection");
-  storeClient = new StoreClient(socket, connections);
+const storeClient = await new Promise<StoreClient>((resolve) => {
+  const coordinatorServer = net.createServer((socket) => {
+    console.log("Got store connection");
+    resolve(new StoreClient(socket, connections));
+  });
+  coordinatorServer.listen(7147, () => console.log("Listening on port 7147 for tcp connections"));
 });
-coordinatorServer.listen(7147, () => console.log("Listening on port 7147 for tcp connections"));
 
 const options = {
   key: fs.readFileSync("localhost-key.pem"),
@@ -47,7 +48,7 @@ server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffe
       if (data instanceof Buffer) {
         stateId = crypto.randomBytes(8).readBigUInt64LE();
         connections.set(stateId, new Map([[userId, new Set([ws])]]));
-        storeClient!.newState(stateId, userId, data);
+        storeClient.newState(stateId, userId, data);
         ws.send(stateId.toString(36));
       } else if (typeof data === "string") {
         stateId = [...data].reduce((r, v) => r * BigInt(36) + BigInt(parseInt(v, 36)), 0n);
@@ -58,7 +59,7 @@ server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffe
           connections.get(stateId)!.set(userId, new Set([]));
         }
         connections.get(stateId)!.get(userId)!.add(ws);
-        storeClient!.subscribeUser(stateId, userId);
+        storeClient.subscribeUser(stateId, userId);
       } else {
         throw new Error("Unexpected message type");
       }
@@ -77,11 +78,11 @@ function handleConnection(stateId: StateId, userId: UserId, socket: WebSocket) {
     connections.get(stateId)!.get(userId)!.delete(socket);
     if (connections.get(stateId)!.get(userId)!.size === 0) {
       connections.get(stateId)!.delete(userId);
-      storeClient!.unsubscribeUser(stateId, userId);
+      storeClient.unsubscribeUser(stateId, userId);
     }
     if (connections.get(stateId)!.size === 0) {
       connections.delete(stateId);
     }
   };
-  socket.onmessage = ({ data }) => storeClient!.handleUpdate(stateId, userId, data as Buffer);
+  socket.onmessage = ({ data }) => storeClient.handleUpdate(stateId, userId, data as Buffer);
 }
