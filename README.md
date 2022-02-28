@@ -2,7 +2,11 @@
 
 Local coordinator for offline development of Hathora applications.
 
-## How to run
+> Note: while this local coordinator is perflectly suitable for local development, it is missing several key features of the cloud coordinator and is not meant for production use
+
+## How to use
+
+### Setup
 
 Generate certs using mkcert:
 
@@ -17,7 +21,9 @@ Install dependencies:
 npm install
 ```
 
-Run coordinator server:
+### Run
+
+Start the coordinator process:
 
 ```sh
 node --loader ts-node/esm coordinator.ts
