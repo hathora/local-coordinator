@@ -11,7 +11,7 @@ type StateId = bigint;
 type UserId = string;
 
 export class StoreClient {
-  public constructor(private socket: net.Socket, connections: Map<StateId, Map<UserId, Set<WebSocket>>>) {
+  public constructor(private socket: net.Socket, connections: Map<StateId, Map<UserId, WebSocket>>) {
     socket.once("data", () => {
       readData(socket, (data) => {
         const reader = new Reader(data);
@@ -21,10 +21,10 @@ export class StoreClient {
 
         const userConnections = connections.get(stateId);
         if (dataBuf.length === 0) {
-          userConnections?.get(userId)?.forEach((conn) => conn.close(4000, "State not found"));
+          userConnections?.get(userId)?.close(4000, "State not found");
           connections.delete(stateId);
         } else {
-          userConnections?.get(userId)?.forEach((conn) => conn.send(dataBuf));
+          userConnections?.get(userId)?.send(dataBuf);
         }
       });
     });

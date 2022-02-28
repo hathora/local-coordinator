@@ -9,7 +9,7 @@ import { StoreClient } from "./store-client.js";
 
 type StateId = bigint;
 type UserId = string;
-const connections: Map<StateId, Map<UserId, Set<WebSocket>>> = new Map();
+const connections: Map<StateId, Map<UserId, WebSocket>> = new Map();
 
 const storeClient = await new Promise<StoreClient>((resolve) => {
   const coordinatorServer = net.createServer((socket) => {
@@ -47,7 +47,7 @@ server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffe
       let stateId;
       if (data instanceof Buffer) {
         stateId = crypto.randomBytes(8).readBigUInt64LE();
-        connections.set(stateId, new Map([[userId, new Set([ws])]]));
+        connections.set(stateId, new Map([[userId, ws]]));
         storeClient.newState(stateId, userId, data);
         ws.send(stateId.toString(36));
       } else if (typeof data === "string") {
@@ -55,10 +55,7 @@ server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffe
         if (!connections.has(stateId)) {
           connections.set(stateId, new Map([]));
         }
-        if (!connections.get(stateId)!.has(userId)) {
-          connections.get(stateId)!.set(userId, new Set([]));
-        }
-        connections.get(stateId)!.get(userId)!.add(ws);
+        connections.get(stateId)!.set(userId, ws);
         storeClient.subscribeUser(stateId, userId);
       } else {
         throw new Error("Unexpected message type");
@@ -75,11 +72,8 @@ function handleConnection(stateId: StateId, userId: UserId, socket: WebSocket) {
     if (!connections.has(stateId)) {
       return;
     }
-    connections.get(stateId)!.get(userId)!.delete(socket);
-    if (connections.get(stateId)!.get(userId)!.size === 0) {
-      connections.get(stateId)!.delete(userId);
-      storeClient.unsubscribeUser(stateId, userId);
-    }
+    connections.get(stateId)!.delete(userId);
+    storeClient.unsubscribeUser(stateId, userId);
     if (connections.get(stateId)!.size === 0) {
       connections.delete(stateId);
     }
