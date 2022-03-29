@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { uniqueNamesGenerator, adjectives, colors, animals } from "unique-names-generator";
 import { WebSocketServer, WebSocket } from "ws";
 import { StoreClient } from "./store-client.js";
+import { Reader } from "bin-serde";
 
 type StateId = bigint;
 type UserId = string;
@@ -36,39 +37,41 @@ const server = https.createServer(options, (req, res) => {
 const wss = new WebSocketServer({ noServer: true });
 server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
   wss.handleUpgrade(req, socket, head, (ws) => {
-    let userId: UserId | undefined;
-    ws.onmessage = ({ data }) => {
-      if (userId === undefined) {
-        const token = data as string;
-        userId = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).id;
-        return;
-      }
-
-      let stateId;
+    ws.once("message", (data) => {
       if (data instanceof Buffer) {
-        stateId = crypto.randomBytes(8).readBigUInt64LE();
-        connections.set(stateId, new Map([[userId, ws]]));
-        storeClient.newState(stateId, userId, data);
-        ws.send(stateId.toString(36));
-      } else if (typeof data === "string") {
-        stateId = [...data].reduce((r, v) => r * BigInt(36) + BigInt(parseInt(v, 36)), 0n);
-        if (!connections.has(stateId)) {
-          connections.set(stateId, new Map([]));
+        const reader = new Reader(data);
+        const type = reader.readUInt8();
+        const token = reader.readString();
+        const userId = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).id;
+        let stateId;
+        if (type === 0) {
+          stateId = crypto.randomBytes(8).readBigUInt64LE();
+          connections.set(stateId, new Map([[userId, ws]]));
+          storeClient.newState(stateId);
+          storeClient.subscribeUser(stateId, userId);
+          ws.send(stateId.toString(36));
+        } else if (type === 1) {
+          stateId = reader.readUInt64();
+          if (!connections.has(stateId)) {
+            connections.set(stateId, new Map([]));
+          }
+          connections.get(stateId)!.set(userId, ws);
+          storeClient.subscribeUser(stateId, userId);
+        } else {
+          throw new Error("Unexpected message type");
         }
-        connections.get(stateId)!.set(userId, ws);
-        storeClient.subscribeUser(stateId, userId);
+        console.log("Got client connection", stateId.toString(36), userId);
+        handleConnection(stateId, userId, ws);
       } else {
-        throw new Error("Unexpected message type");
+        throw new Error("Unexpected data type");
       }
-      console.log("Got client connection", stateId.toString(36), userId);
-      handleConnection(stateId, userId, ws);
-    };
+    });
   });
 });
 server.listen(443, () => console.log("Listening on port 443 for http connections"));
 
 function handleConnection(stateId: StateId, userId: UserId, socket: WebSocket) {
-  socket.onclose = () => {
+  socket.on("close", () => {
     if (!connections.has(stateId)) {
       return;
     }
@@ -77,6 +80,6 @@ function handleConnection(stateId: StateId, userId: UserId, socket: WebSocket) {
     if (connections.get(stateId)!.size === 0) {
       connections.delete(stateId);
     }
-  };
-  socket.onmessage = ({ data }) => storeClient.handleUpdate(stateId, userId, data as Buffer);
+  });
+  socket.on("message", (data) => storeClient.handleUpdate(stateId, userId, data as Buffer));
 }
