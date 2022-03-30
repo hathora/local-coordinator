@@ -15,27 +15,26 @@ export class StoreClient {
     socket.once("data", () => {
       readData(socket, (data) => {
         const reader = new Reader(data);
-        const stateId = reader.readUInt64();
-        const userId = reader.readString();
-        const dataBuf = reader.readBuffer(reader.remaining());
-
-        const userConnections = connections.get(stateId);
-        if (dataBuf.length === 0) {
+        const type = reader.readUInt8();
+        if (type === 0) {
+          const stateId = reader.readUInt64();
+          const userId = reader.readString();
+          const dataBuf = reader.readBuffer(reader.remaining());
+          const userConnections = connections.get(stateId);
+          userConnections?.get(userId)?.send(dataBuf);
+        } else if (type === 1) {
+          const stateId = reader.readUInt64();
+          const userId = reader.readString();
+          const userConnections = connections.get(stateId);
           userConnections?.get(userId)?.close(4000, "State not found");
           connections.delete(stateId);
-        } else {
-          userConnections?.get(userId)?.send(dataBuf);
         }
       });
     });
   }
 
   public newState(stateId: StateId) {
-    const buf = new Writer()
-      .writeUInt32(9)
-      .writeUInt8(NEW_STATE)
-      .writeUInt64(stateId)
-      .toBuffer();
+    const buf = new Writer().writeUInt32(9).writeUInt8(NEW_STATE).writeUInt64(stateId).toBuffer();
     this.socket.write(buf);
   }
 

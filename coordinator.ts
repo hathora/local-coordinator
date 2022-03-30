@@ -66,11 +66,7 @@ server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffe
           storeClient.subscribeUser(stateId, userId);
           console.log("Got client connection", stateId.toString(36), userId);
           handleConnection(stateId, userId, ws);
-        } else {
-          throw new Error("Unexpected message type");
         }
-      } else {
-        throw new Error("Unexpected data type");
       }
     });
   });
