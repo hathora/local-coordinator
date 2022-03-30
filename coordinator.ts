@@ -3,6 +3,8 @@ import http from "http";
 import https from "https";
 import net from "net";
 import crypto from "crypto";
+import express from "express";
+import cors from "cors";
 import { uniqueNamesGenerator, adjectives, colors, animals } from "unique-names-generator";
 import { WebSocketServer, WebSocket } from "ws";
 import { StoreClient } from "./store-client.js";
@@ -24,15 +26,27 @@ const options = {
   key: fs.readFileSync("localhost-key.pem"),
   cert: fs.readFileSync("localhost.pem"),
 };
-const server = https.createServer(options, (req, res) => {
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+app.post("/:appId/login/anonymous", (req, res) => {
   const id = Math.random().toString(36).substring(2);
   const name = uniqueNamesGenerator({ dictionaries: [adjectives, colors, animals] });
   const user = { type: "anonymous", id, name };
   const token = `e30.${Buffer.from(JSON.stringify(user)).toString("base64")}`;
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Content-Type", "application/json");
-  res.end(JSON.stringify({ token }));
+  res.json({ token });
 });
+app.post("/:appId/create", (req, res) => {
+  const token = req.headers.authorization;
+  if (token === undefined) {
+    res.sendStatus(403);
+  }
+  const stateId = crypto.randomBytes(8).readBigUInt64LE();
+  storeClient.newState(stateId);
+  res.json({ stateId: stateId.toString(36) });
+});
+const server = https.createServer(options, app);
 
 const wss = new WebSocketServer({ noServer: true });
 server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
@@ -41,27 +55,20 @@ server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffe
       if (data instanceof Buffer) {
         const reader = new Reader(data);
         const type = reader.readUInt8();
-        const token = reader.readString();
-        const userId = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).id;
-        let stateId;
         if (type === 0) {
-          stateId = crypto.randomBytes(8).readBigUInt64LE();
-          connections.set(stateId, new Map([[userId, ws]]));
-          storeClient.newState(stateId);
-          storeClient.subscribeUser(stateId, userId);
-          ws.send(stateId.toString(36));
-        } else if (type === 1) {
-          stateId = reader.readUInt64();
+          const token = reader.readString();
+          const userId = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).id;
+          const stateId = reader.readUInt64();
           if (!connections.has(stateId)) {
             connections.set(stateId, new Map([]));
           }
           connections.get(stateId)!.set(userId, ws);
           storeClient.subscribeUser(stateId, userId);
+          console.log("Got client connection", stateId.toString(36), userId);
+          handleConnection(stateId, userId, ws);
         } else {
           throw new Error("Unexpected message type");
         }
-        console.log("Got client connection", stateId.toString(36), userId);
-        handleConnection(stateId, userId, ws);
       } else {
         throw new Error("Unexpected data type");
       }
