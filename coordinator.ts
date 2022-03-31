@@ -29,6 +29,7 @@ const options = {
 
 const app = express();
 app.use(express.json());
+app.use(express.raw());
 app.use(cors());
 app.post("/:appId/login/anonymous", (req, res) => {
   const id = Math.random().toString(36).substring(2);
@@ -43,7 +44,7 @@ app.post("/:appId/create", (req, res) => {
     res.sendStatus(403);
   }
   const stateId = crypto.randomBytes(8).readBigUInt64LE();
-  storeClient.newState(stateId);
+  storeClient.newState(stateId, req.body);
   res.json({ stateId: stateId.toString(36) });
 });
 const server = https.createServer(options, app);
