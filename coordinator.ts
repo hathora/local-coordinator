@@ -42,10 +42,16 @@ app.post("/:appId/create", (req, res) => {
   const token = req.headers.authorization;
   if (token === undefined) {
     res.sendStatus(403);
+    return;
   }
-  const stateId = crypto.randomBytes(8).readBigUInt64LE();
-  storeClient.newState(stateId, req.body);
-  res.json({ stateId: stateId.toString(36) });
+  try {
+    const userId = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).id;
+    const stateId = crypto.randomBytes(8).readBigUInt64LE();
+    storeClient.newState(stateId, userId, req.body);
+    res.json({ stateId: stateId.toString(36) });
+  } catch (e) {
+    res.sendStatus(403);
+  }
 });
 const server = https.createServer(options, app);
 

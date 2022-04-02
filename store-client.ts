@@ -33,11 +33,13 @@ export class StoreClient {
     });
   }
 
-  public newState(stateId: StateId, args: Buffer) {
+  public newState(stateId: StateId, userId: UserId, args: Buffer) {
+    const userIdBuf = new Writer().writeString(userId).toBuffer();
     const buf = new Writer()
-      .writeUInt32(9 + args.length)
+      .writeUInt32(9 + userIdBuf.length + args.length)
       .writeUInt8(NEW_STATE)
       .writeUInt64(stateId)
+      .writeBuffer(userIdBuf)
       .writeBuffer(args)
       .toBuffer();
     this.socket.write(buf);
