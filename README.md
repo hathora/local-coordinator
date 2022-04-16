@@ -6,25 +6,35 @@ Local coordinator for offline development of Hathora applications.
 
 ## How to use
 
-### Setup
+### 1. Enable HTTPS for localhost
 
-Generate certs using [mkcert](https://github.com/FiloSottile/mkcert):
+First, generate certificates using [mkcert](https://github.com/FiloSottile/mkcert).
 
 ```sh
 mkcert -install
 mkcert localhost
 ```
 
-Install dependencies:
+Make sure to add `*.pem` to your `.gitignore` file to avoid committing the certificate files.
 
-```sh
-npm install
+### 2. Add `local-coordinator` to your Hathora project
+
+In your project root directory:
+
+- Install with `npm i https://github.com/hathora/local-coordinator.git`
+- Start the coordinator with `npx local-coordinator` and keep it running during development.
+- Then you can open another terminal and run `COORDINATOR_HOST=localhost npx hathora dev` to make hathora connect to your `local-coordinator`.
+
+
+To simplify your workflow, it's highly recommended to add scripts to `package.json`.
+
+```json
+"scripts": {
+  "coordinator": "local-coordinator",
+  "dev": "COORDINATOR_HOST=localhost hathora dev"
+}
 ```
 
-### Run
+Now you can start your offline Hathora dev environment by creating two terminals where you run `npm run coordinator` in the first, and `npm run dev` in the second.
 
-Start the coordinator process:
-
-```sh
-npx ts-node --esm coordinator.ts
-```
+Happy codning! 🪴
