@@ -41,7 +41,7 @@ app.post("/:appId/login/anonymous", (req, res) => {
 app.post("/:appId/login/nickname", (req, res) => {
   const { appId } = req.params;
   const { nickname } = req.body;
-  const id = crypto.createHash('md5').update(`${appId}:${nickname}`).digest('hex').slice(0,12);
+  const id = Math.random().toString(36).substring(2);
   const user = { type: "nickname", id, name: nickname };
   const token = `e30.${Buffer.from(JSON.stringify(user)).toString("base64")}`;
   res.json({ token });
