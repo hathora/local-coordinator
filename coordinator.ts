@@ -38,6 +38,14 @@ app.post("/:appId/login/anonymous", (req, res) => {
   const token = `e30.${Buffer.from(JSON.stringify(user)).toString("base64")}`;
   res.json({ token });
 });
+app.post("/:appId/login/nickname", (req, res) => {
+  const { appId } = req.params;
+  const { nickname } = req.body;
+  const id = Math.random().toString(36).substring(2);
+  const user = { type: "nickname", id, name: nickname };
+  const token = `e30.${Buffer.from(JSON.stringify(user)).toString("base64")}`;
+  res.json({ token });
+});
 app.post("/:appId/create", (req, res) => {
   const token = req.headers.authorization;
   if (token === undefined) {
