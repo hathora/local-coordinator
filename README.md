@@ -8,7 +8,7 @@ Local coordinator for offline development of Hathora applications.
 
 ### Setup
 
-Generate certs using mkcert:
+Generate certs using [mkcert](https://github.com/FiloSottile/mkcert):
 
 ```sh
 mkcert -install
