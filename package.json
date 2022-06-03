@@ -5,6 +5,9 @@
   "description": "Local coordinator for Hathora",
   "author": "Harsh Pandey",
   "license": "MIT",
+  "scripts": {
+    "start": "node --loader ts-node/esm coordinator.ts"
+  },
   "dependencies": {
     "bin-serde": "^1.1.1",
     "cors": "^2.8.5",
