@@ -8,7 +8,6 @@ import cors from "cors";
 import { uniqueNamesGenerator, adjectives, colors, animals } from "unique-names-generator";
 import { WebSocketServer, WebSocket } from "ws";
 import { StoreClient } from "./store-client.js";
-import { Reader } from "bin-serde";
 
 type StateId = bigint;
 type UserId = string;
@@ -39,7 +38,6 @@ app.post("/:appId/login/anonymous", (req, res) => {
   res.json({ token });
 });
 app.post("/:appId/login/nickname", (req, res) => {
-  const { appId } = req.params;
   const { nickname } = req.body;
   const id = Math.random().toString(36).substring(2);
   const user = { type: "nickname", id, name: nickname };
@@ -66,23 +64,19 @@ const server = https.createServer(options, app);
 const wss = new WebSocketServer({ noServer: true });
 server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
   wss.handleUpgrade(req, socket, head, (ws) => {
-    ws.once("message", (data) => {
-      if (data instanceof Buffer) {
-        const reader = new Reader(data);
-        const type = reader.readUInt8();
-        if (type === 0) {
-          const token = reader.readString();
-          const userId = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).id;
-          const stateId = reader.readUInt64();
-          if (!connections.has(stateId)) {
-            connections.set(stateId, new Map([]));
-          }
-          connections.get(stateId)!.set(userId, ws);
-          storeClient.subscribeUser(stateId, userId);
-          console.log("Got client connection", stateId.toString(36), userId);
-          handleConnection(stateId, userId, ws);
-        }
+    ws.once("message", (data: Buffer) => {
+      const { token, stateId: stateIdStr } = JSON.parse(data.toString("utf8"));
+      console.log(token, stateIdStr);
+      const userId = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).id;
+      const stateId = [...stateIdStr].map((c) => parseInt(c, 36)).reduce((r, v) => r * 36n + BigInt(v), 0n);
+      if (!connections.has(stateId)) {
+        connections.set(stateId, new Map([]));
       }
+      connections.get(stateId)!.set(userId, ws);
+      storeClient.subscribeUser(stateId, userId);
+      console.log("Got client connection", stateId.toString(36), userId);
+      handleConnection(stateId, userId, ws);
+      ws.send(Buffer.alloc(0));
     });
   });
 });
